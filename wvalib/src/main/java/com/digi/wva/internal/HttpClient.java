@@ -7,7 +7,6 @@
 
 package com.digi.wva.internal;
 
-import android.os.Build;
 import android.util.Log;
 
 import com.digi.wva.exc.WvaHttpException;
@@ -31,6 +30,9 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -40,6 +42,7 @@ import java.util.Locale;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
 
@@ -168,24 +171,88 @@ public class HttpClient {
     private final String hostname;
     private final OkHttpClient client;
 
+	public class TLSSocketFactory extends SSLSocketFactory {
+		private SSLSocketFactory internalSSLSocketFactory;
+
+		public TLSSocketFactory() throws KeyManagementException, NoSuchAlgorithmException {
+			SSLContext context = SSLContext.getInstance("TLS");
+            context.init(null, new X509TrustManager[]{new X509TrustManager() {
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain, String authType)
+                        throws CertificateException {
+                }
+
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain, String authType)
+                        throws CertificateException {
+                }
+            }}, null);
+			internalSSLSocketFactory = context.getSocketFactory();
+		}
+
+		@Override
+		public String[] getDefaultCipherSuites() {
+			return internalSSLSocketFactory.getDefaultCipherSuites();
+		}
+
+		@Override
+		public String[] getSupportedCipherSuites() {
+			return internalSSLSocketFactory.getSupportedCipherSuites();
+		}
+
+		@Override
+		public Socket createSocket(Socket s, String host, int port, boolean autoClose) throws IOException {
+			return enableTLSOnSocket(internalSSLSocketFactory.createSocket(s, host, port, autoClose));
+		}
+
+		@Override
+		public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
+			return enableTLSOnSocket(internalSSLSocketFactory.createSocket(host, port));
+		}
+
+		@Override
+		public Socket createSocket(String host, int port, InetAddress localHost, int localPort) throws IOException, UnknownHostException {
+			return enableTLSOnSocket(internalSSLSocketFactory.createSocket(host, port, localHost, localPort));
+		}
+
+		@Override
+		public Socket createSocket(InetAddress host, int port) throws IOException {
+			return enableTLSOnSocket(internalSSLSocketFactory.createSocket(host, port));
+		}
+
+		@Override
+		public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort) throws IOException {
+			return enableTLSOnSocket(internalSSLSocketFactory.createSocket(address, port, localAddress, localPort));
+		}
+
+		private Socket enableTLSOnSocket(Socket socket) {
+			if(socket != null && (socket instanceof SSLSocket)) {
+				((SSLSocket)socket).setEnabledProtocols(new String[] {"TLSv1.2"});
+			}
+			return socket;
+		}
+	}
+
     /**
      * Returns an SSLSocketFactory which trusts any certificate. (Needed in order to connect
      * with the WVA when using HTTPS.)
      * @return an SSLSocketFactory which trusts all certificates
      */
-    private static SSLSocketFactory makeSSLSocketFactory() {
-        // based on information from:
-        // http://engineering.sproutsocial.com/2013/09/android-using-volley-and-loopj-with-self-signed-certificates/
-        // http://blog.dev-area.net/2015/08/13/android-4-1-enable-tls-1-1-and-tls-1-2/
-        try {
-            // Support TLSv1.2 on API 16+
-            int currentAPIVersion = android.os.Build.VERSION.SDK_INT;
-            return (currentAPIVersion >= Build.VERSION_CODES.JELLY_BEAN) ? new TLSSocketFactory("TLSv1.2") : new TLSSocketFactory("TLS");
-        } catch (NoSuchAlgorithmException e) {
-            return null;
-        } catch (KeyManagementException e) {
-            return null;
-        }
+    private SSLSocketFactory makeSSLSocketFactory() {
+		SSLSocketFactory factory = null;
+
+		try {
+			factory = new TLSSocketFactory();
+		} catch (NoSuchAlgorithmException e) {
+		} catch (KeyManagementException e) {
+		}
+
+		return factory;
     }
 
     /** Constructor
