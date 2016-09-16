@@ -280,13 +280,13 @@ public class Hardware {
     }
 
     /**
-     * Underlying implementation of {@link com.digi.wva.WVA#Reboot(WvaCallback)}
+     * Underlying implementation of {@link com.digi.wva.WVA#reboot(WvaCallback)}
      *
      * @throws JSONException if an error occurs while creating the request
      */
-    public void Reboot(final WvaCallback<Void> cb) throws JSONException {
+    public void reboot(final WvaCallback<Void> cb) throws JSONException {
 
-        httpClient.put(REBOOT_BASE, null, new HttpClient.ExpectEmptyCallback() {
+        httpClient.put(REBOOT_BASE, new JSONObject(), new HttpClient.ExpectEmptyCallback() {
             @Override
             public void onSuccess() {
                 if (cb != null) {
@@ -296,7 +296,7 @@ public class Hardware {
 
             @Override
             public void onBodyNotEmpty(String body) {
-                Log.e(TAG, "setTime got unexpected response body content:\n" + body);
+                Log.e(TAG, "reboot got unexpected response body content:\n" + body);
                 onFailure(new Exception("Unexpected response body: " + body));
             }
 

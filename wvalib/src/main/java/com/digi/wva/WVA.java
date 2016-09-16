@@ -1605,10 +1605,10 @@ public class WVA {
      *
      * @param callback callback to be executed once the request has completed.
      */
-    public void Reboot(final WvaCallback<Void> callback) {
+    public void reboot(final WvaCallback<Void> callback) {
         WvaCallback<Void> wrapped = WvaCallback.wrap(callback, this.uiThreadHandler);
         try {
-            hardware.Reboot(wrapped);
+            hardware.reboot(wrapped);
         } catch (JSONException e) {
             if (callback != null) wrapped.onResponse(e, null);
         }
