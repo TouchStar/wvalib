@@ -53,7 +53,7 @@ public class WvaHttpException extends Exception {
      * @return {@code "WvaHttpException: %s on %s. Body:%n%s" % description, url, body}
      */
     @Override
-    public final String getMessage() {
+    public String getMessage() {
         if (TextUtils.isEmpty(this.body)) {
             return String.format("WvaHttpException: %s on %s", this.description, this.url);
         } else {
